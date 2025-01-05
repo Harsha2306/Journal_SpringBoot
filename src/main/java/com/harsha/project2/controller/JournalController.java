@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.bson.types.ObjectId;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +33,7 @@ public class JournalController {
 	}
 
 	@GetMapping("{userId}")
+	@Transactional
 	public ResponseEntity<?> getAllJounalsByUserId(@PathVariable ObjectId userId) {
 		try {
 			Optional<User> optionalUser = userService.getUserById(userId);
@@ -48,6 +50,7 @@ public class JournalController {
 	}
 
 	@PostMapping("{userId}")
+	@Transactional
 	public ResponseEntity<?> createJournal(@RequestBody Journal journal, @PathVariable ObjectId userId) {
 		try {
 			Optional<User> optionlUser = userService.getUserById(userId);
@@ -71,6 +74,7 @@ public class JournalController {
 	}
 
 	@GetMapping("/{userId}/{journalId}")
+	@Transactional
 	public ResponseEntity<?> getJournalById(@PathVariable ObjectId userId, @PathVariable ObjectId journalId) {
 		try {
 			Optional<User> optionalUser = userService.getUserById(userId);
@@ -94,6 +98,7 @@ public class JournalController {
 	}
 
 	@DeleteMapping("/{userId}/{journalId}")
+	@Transactional
 	public ResponseEntity<?> deleteJournalById(@PathVariable ObjectId userId, @PathVariable ObjectId journalId) {
 		try {
 			Optional<User> optionalUser = userService.getUserById(userId);
@@ -117,6 +122,7 @@ public class JournalController {
 	}
 
 	@PutMapping("/{userId}/{journalId}")
+	@Transactional
 	public ResponseEntity<?> updateJournalById(@PathVariable ObjectId userId, @PathVariable ObjectId journalId,
 			@RequestBody Journal updatdJournal) {
 		try {
