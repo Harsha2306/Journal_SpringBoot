@@ -3,10 +3,9 @@ package com.harsha.project2.repository;
 import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
-
-import com.harsha.project2.entity.Journal;
+import com.harsha.project2.entity.User;
 
 @Repository
-public interface JournalRepository extends MongoRepository<Journal, ObjectId>{
-	
+public interface UserRepository extends MongoRepository<User, ObjectId> {
+	User findByUserName(String userName);
 }

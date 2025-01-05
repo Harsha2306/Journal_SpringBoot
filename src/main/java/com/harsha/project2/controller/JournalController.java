@@ -5,9 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.bson.types.ObjectId;
-import org.springframework.data.mongodb.core.query.UpdateDefinition;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,71 +18,134 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.harsha.project2.ErrorResponse;
 import com.harsha.project2.entity.Journal;
-import com.harsha.project2.service.JournalService;
+import com.harsha.project2.entity.User;
+import com.harsha.project2.service.UserService;
 
 @RestController
 @RequestMapping("/journal")
 public class JournalController {
 
-	private JournalService journalService;
+	private UserService userService;
 
-	public JournalController(JournalService journalService) {
-		this.journalService = journalService;
+	public JournalController(UserService userService) {
+		this.userService = userService;
 	}
 
-	@GetMapping
-	public ResponseEntity<List<Journal>> getAll() {
-		return ResponseEntity.status(HttpStatus.OK).body(journalService.getAll());
-	}
-
-	@PostMapping
-	public ResponseEntity<?> createJournal(@RequestBody Journal journal) {
+	@GetMapping("{userId}")
+	public ResponseEntity<?> getAllJounalsByUserId(@PathVariable ObjectId userId) {
 		try {
+			Optional<User> optionalUser = userService.getUserById(userId);
+			if (optionalUser.isPresent()) {
+				return ResponseEntity.status(HttpStatus.OK).body(optionalUser.get().getJournals());
+			}
+
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "user not found"));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
+		}
+	}
+
+	@PostMapping("{userId}")
+	public ResponseEntity<?> createJournal(@RequestBody Journal journal, @PathVariable ObjectId userId) {
+		try {
+			Optional<User> optionlUser = userService.getUserById(userId);
+			if (optionlUser.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "user not found"));
+			}
+
 			journal.setDate(LocalDateTime.now());
-			Journal savedJournal = journalService.createJournal(journal);
-			return ResponseEntity.status(HttpStatus.CREATED).body(savedJournal);
+			journal.setId(new ObjectId());
+
+			User user = optionlUser.get();
+			user.getJournals().add(journal);
+			userService.saveUser(user);
+
+			return new ResponseEntity<>(HttpStatus.CREATED);
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
 		}
 	}
 
-	@GetMapping("/{journalId}")
-	public ResponseEntity<?> getJournalById(@PathVariable ObjectId journalId) {
+	@GetMapping("/{userId}/{journalId}")
+	public ResponseEntity<?> getJournalById(@PathVariable ObjectId userId, @PathVariable ObjectId journalId) {
 		try {
-			Optional<Journal> journal = journalService.getJournalById(journalId);
-			return journal.isPresent() ? ResponseEntity.status(HttpStatus.OK).body(journal.get())
+			Optional<User> optionalUser = userService.getUserById(userId);
+			if (optionalUser.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "user not found"));
+			}
+
+			User user = optionalUser.get();
+			List<Journal> journals = user.getJournals();
+			Optional<Journal> requiredJournal = journals.stream().filter(journal -> journal.getId().equals(journalId))
+					.findFirst();
+
+			return requiredJournal.isPresent() ? ResponseEntity.status(HttpStatus.OK).body(requiredJournal.get())
 					: ResponseEntity.status(HttpStatus.NOT_FOUND)
-							.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "not found"));
+							.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "journal not found"));
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
 		}
 	}
 
-	@DeleteMapping("/{journalId}")
-	public ResponseEntity<?> deleteJournalById(@PathVariable ObjectId journalId) {
+	@DeleteMapping("/{userId}/{journalId}")
+	public ResponseEntity<?> deleteJournalById(@PathVariable ObjectId userId, @PathVariable ObjectId journalId) {
 		try {
-			journalService.deleteJournalById(journalId);
-			return new ResponseEntity<>(HttpStatus.ACCEPTED);
+			Optional<User> optionalUser = userService.getUserById(userId);
+			if (optionalUser.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "user not found"));
+			}
+
+			User user = optionalUser.get();
+			boolean isRemoved = user.getJournals().removeIf(journal -> journal.getId().equals(journalId));
+			if (!isRemoved)
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "journal not found"));
+
+			userService.saveUser(user);
+			return new ResponseEntity<>(HttpStatus.OK);
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
 		}
 	}
 
-	@PutMapping("/{journalId}")
-	public ResponseEntity<?> updateJournalById(@PathVariable ObjectId journalId, @RequestBody Journal updatdJournal) {
-		Optional<Journal> journal = journalService.getJournalById(journalId);
-		if (journal.isPresent()) {
+	@PutMapping("/{userId}/{journalId}")
+	public ResponseEntity<?> updateJournalById(@PathVariable ObjectId userId, @PathVariable ObjectId journalId,
+			@RequestBody Journal updatdJournal) {
+		try {
+			Optional<User> optionalUser = userService.getUserById(userId);
+			if (optionalUser.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "user not found"));
+			}
+
+			User user = optionalUser.get();
+			List<Journal> journals = user.getJournals();
+			Optional<Journal> optionalJournal = journals.stream().filter(journal -> journal.getId().equals(journalId))
+					.findFirst();
+			if (optionalJournal.isEmpty())
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "journal not found"));
+
+			Journal journal = optionalJournal.get();
 			if (updatdJournal.getTitle() != null && updatdJournal.getTitle().trim().length() != 0)
-				journal.get().setTitle(updatdJournal.getTitle());
+				journal.setTitle(updatdJournal.getTitle());
 			if (updatdJournal.getContent() != null && updatdJournal.getContent().trim().length() != 0)
-				journal.get().setContent(updatdJournal.getContent());
-			return ResponseEntity.status(HttpStatus.ACCEPTED).body(journalService.createJournal(journal.get()));
+				journal.setContent(updatdJournal.getContent());
+			userService.saveUser(user);
+
+			return new ResponseEntity<>(HttpStatus.OK);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
 		}
-		return ResponseEntity.status(HttpStatus.NOT_FOUND)
-				.body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "not found"));
 	}
 
 }

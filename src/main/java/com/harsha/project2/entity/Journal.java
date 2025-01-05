@@ -17,6 +17,7 @@ import lombok.ToString;
 
 @Document
 @Data
+@NoArgsConstructor
 public class Journal {
 
 	@Id

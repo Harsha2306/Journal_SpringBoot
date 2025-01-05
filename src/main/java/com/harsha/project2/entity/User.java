@@ -24,6 +24,5 @@ public class User {
 	@Indexed(unique = true)
 	@NonNull
 	private String userName;
-	@DBRef
 	private List<Journal> journals = new ArrayList<Journal>();
 }
